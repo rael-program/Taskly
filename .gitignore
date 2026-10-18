@@ -1,0 +1,5 @@
+node_modules/
+taskly.db
+*.db
+*.db-*
+.env
