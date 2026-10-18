@@ -7,6 +7,7 @@ const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const Database = require("better-sqlite3");
+const path = require("path"); // ✅ Adicionado para gerenciar caminhos
 require("dotenv").config();
 
 // ============================================
@@ -23,10 +24,13 @@ app.use(express.static("public"));
 // ============================================
 // 3. BANCO DE DADOS (SQLite)
 // ============================================
-const db = new Database("taskly.db");
+// ✅ Se estiver no Render, salva em /var/data (disco persistente). Se não, salva local.
+const dbPath = process.env.RENDER ? "/var/data/taskly.db" : path.join(__dirname, "taskly.db");
+const db = new Database(dbPath);
+
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
-db.pragma("busy_timeout = 5000");   // ✅ Espera até 5s antes de dar "database is locked"
+db.pragma("busy_timeout = 5000");
 
 // --- Tabela de usuários ---
 db.exec(`
@@ -47,7 +51,7 @@ if (!userCols.includes("reset_token")) db.exec("ALTER TABLE users ADD COLUMN res
 if (!userCols.includes("reset_token_expires")) db.exec("ALTER TABLE users ADD COLUMN reset_token_expires TEXT");
 if (!userCols.includes("role")) db.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'usuario'");
 
-// --- Tabela de tarefas (SEM horário) ---
+// --- Tabela de tarefas ---
 db.exec(`
   CREATE TABLE IF NOT EXISTS tasks (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,21 +67,16 @@ db.exec(`
   );
 `);
 
-// Índice para acelerar buscas por usuário
 db.exec(`CREATE INDEX IF NOT EXISTS idx_tasks_user ON tasks(user_id);`);
 
-// Migração opcional: remove a coluna `time` se ainda existir
 try {
   const taskCols = db.prepare("PRAGMA table_info(tasks)").all().map(c => c.name);
   if (taskCols.includes("time")) {
     db.exec("ALTER TABLE tasks DROP COLUMN time");
     console.log("🗑️  Coluna 'time' removida da tabela tasks.");
   }
-} catch {
-  // Se a versão do SQLite não suportar DROP COLUMN, ignora
-}
+} catch {}
 
-// ✅ Se ninguém é admin ainda, promove o usuário mais antigo
 const temAdmin = db.prepare("SELECT COUNT(*) AS c FROM users WHERE role = 'admin'").get().c;
 if (temAdmin === 0) {
   const primeiro = db.prepare("SELECT id FROM users ORDER BY id ASC LIMIT 1").get();
@@ -114,7 +113,6 @@ function autenticar(req, res, next) {
   }
 }
 
-// Converte linha do banco para o formato do front
 function taskToJson(row) {
   return {
     id: row.id,
@@ -134,7 +132,6 @@ app.get("/", (_req, res) => {
   res.json({ ok: true, mensagem: "API Taskly funcionando!" });
 });
 
-// --- CADASTRO ---
 app.post("/api/register", async (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: "Usuário e senha são obrigatórios." });
@@ -144,7 +141,6 @@ app.post("/api/register", async (req, res) => {
   const existe = db.prepare("SELECT id FROM users WHERE username = ?").get(username);
   if (existe) return res.status(409).json({ error: "Usuário já existe." });
 
-  // ✅ Primeiro usuário vira admin
   const total = db.prepare("SELECT COUNT(*) AS c FROM users").get().c;
   const role = total === 0 ? "admin" : "usuario";
 
@@ -158,7 +154,6 @@ app.post("/api/register", async (req, res) => {
   res.status(201).json({ token, user });
 });
 
-// --- LOGIN ---
 app.post("/api/login", async (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: "Usuário e senha são obrigatórios." });
@@ -173,7 +168,6 @@ app.post("/api/login", async (req, res) => {
   res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
 });
 
-// --- ESQUECI A SENHA ---
 app.post("/api/forgot-password", (req, res) => {
   const { username } = req.body || {};
   if (!username) return res.status(400).json({ error: "Informe o nome de usuário." });
@@ -196,7 +190,6 @@ app.post("/api/forgot-password", (req, res) => {
   res.json({ message: "Token gerado. Verifique o console do servidor.", token });
 });
 
-// --- RESETAR SENHA ---
 app.post("/api/reset-password", async (req, res) => {
   const { token, newPassword } = req.body || {};
   if (!token || !newPassword) return res.status(400).json({ error: "Token e nova senha são obrigatórios." });
@@ -215,7 +208,6 @@ app.post("/api/reset-password", async (req, res) => {
   res.json({ message: "Senha redefinida com sucesso. Faça login novamente." });
 });
 
-// --- TROCAR SENHA (logado) ---
 app.post("/api/change-password", autenticar, async (req, res) => {
   const { currentPassword, newPassword } = req.body || {};
   if (!currentPassword || !newPassword) return res.status(400).json({ error: "Senha atual e nova senha são obrigatórias." });
@@ -234,20 +226,16 @@ app.post("/api/change-password", autenticar, async (req, res) => {
   res.json({ message: "Senha alterada com sucesso." });
 });
 
-// --- ME ---
 app.get("/api/me", autenticar, (req, res) => {
   res.json({ user: req.user });
 });
 
 // ============================================
-// 6. CRUD DE TAREFAS (com papéis)
+// 6. CRUD DE TAREFAS
 // ============================================
-
-// --- LISTAR ---
 app.get("/api/tasks", autenticar, (req, res) => {
   let rows;
   if (req.user.role === "admin" || req.user.role === "gerente") {
-    // Vê TODAS as tarefas (com o nome do dono)
     rows = db.prepare(`
       SELECT tasks.*, users.username AS owner_name
         FROM tasks
@@ -260,7 +248,6 @@ app.get("/api/tasks", autenticar, (req, res) => {
   res.json(rows.map((r) => ({ ...taskToJson(r), owner: r.owner_name || req.user.username })));
 });
 
-// --- CRIAR ---
 app.post("/api/tasks", autenticar, (req, res) => {
   const { name, type, priority, start, end, color } = req.body || {};
   if (!name || !type || !priority || !start || !end) {
@@ -287,7 +274,6 @@ app.post("/api/tasks", autenticar, (req, res) => {
   res.status(201).json({ ...taskToJson(row), owner: req.user.username });
 });
 
-// --- ATUALIZAR ---
 app.put("/api/tasks/:id", autenticar, (req, res) => {
   const id = Number(req.params.id);
   const { name, type, priority, start, end, color } = req.body || {};
@@ -295,7 +281,6 @@ app.put("/api/tasks/:id", autenticar, (req, res) => {
   const tarefa = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
   if (!tarefa) return res.status(404).json({ error: "Tarefa não encontrada." });
 
-  // ✅ Admin edita qualquer uma; os outros só as suas
   if (req.user.role !== "admin" && tarefa.user_id !== req.user.id) {
     return res.status(403).json({ error: "Sem permissão para editar esta tarefa." });
   }
@@ -317,13 +302,11 @@ app.put("/api/tasks/:id", autenticar, (req, res) => {
   res.json(taskToJson(row));
 });
 
-// --- EXCLUIR ---
 app.delete("/api/tasks/:id", autenticar, (req, res) => {
   const id = Number(req.params.id);
   const tarefa = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
   if (!tarefa) return res.status(404).json({ error: "Tarefa não encontrada." });
 
-  // ✅ Admin apaga qualquer uma; os outros só as suas
   if (req.user.role !== "admin" && tarefa.user_id !== req.user.id) {
     return res.status(403).json({ error: "Sem permissão para excluir esta tarefa." });
   }

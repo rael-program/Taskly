@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: taskly-api
+    runtime: node
+    plan: free
+    rootDir: taskly-api
+    buildCommand: npm install
+    startCommand: node server.js
+    disk:
+      name: taskly-data
+      mountPath: /var/data
+      sizeGB: 1
