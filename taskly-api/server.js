@@ -1,13 +1,15 @@
 // ============================================
 // 1. IMPORTAÇÕES
 // ============================================
+const { exec } = require("child_process");
 const express = require("express");
 const crypto = require("crypto");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const Database = require("better-sqlite3");
-const path = require("path"); // ✅ Adicionado para gerenciar caminhos
+const path = require("path");
+const fs = require("fs");
 require("dotenv").config();
 
 // ============================================
@@ -19,13 +21,29 @@ const SECRET = process.env.JWT_SECRET || "segredo-padrao";
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static("public"));
+// ✅ Garante que o Express ache a pasta public dentro do executável
+app.use(express.static(path.join(__dirname, "public")));
 
 // ============================================
 // 3. BANCO DE DADOS (SQLite)
 // ============================================
-// ✅ Se estiver no Render, salva em /var/data (disco persistente). Se não, salva local.
-const dbPath = process.env.RENDER ? "/var/data/taskly.db" : path.join(__dirname, "taskly.db");
+// ✅ Se estiver no Render, usa o disco persistente. 
+// Se for .exe (caxa), salva na mesma pasta onde o .exe está.
+// Se for local, salva na pasta do projeto.
+let dbFolder;
+if (process.env.RENDER) {
+  dbFolder = "/var/data";
+} else if (typeof process.pkg !== "undefined") {
+  dbFolder = path.dirname(process.execPath); // Pasta do .exe
+} else {
+  dbFolder = __dirname; // Pasta do projeto local
+}
+
+const dbPath = path.join(dbFolder, "taskly.db");
+
+// ✅ Garante que a pasta do banco de dados exista
+fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+
 const db = new Database(dbPath);
 
 db.pragma("journal_mode = WAL");
@@ -345,4 +363,21 @@ app.put("/api/users/:id/role", autenticar, (req, res) => {
 // ============================================
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
+  
+  if (!process.env.RENDER) {
+    const url = `http://localhost:${PORT}`;
+    
+    const comando = process.platform === "win32" 
+      ? `start "" "${url}"` 
+      : process.platform === "darwin" 
+        ? `open "${url}"` 
+        : `xdg-open "${url}"`;
+
+    exec(comando, (erro) => {
+      if (erro) {
+        console.log(" Não foi possível abrir o navegador automaticamente.");
+        console.log(` Por favor, acesse manualmente: ${url}`);
+      }
+    });
+  }
 });

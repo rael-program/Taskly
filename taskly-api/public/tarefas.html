@@ -219,7 +219,6 @@
         <nav class="main-nav" aria-label="Navegação principal">
           <a class="nav-item active" id="nav-all" href="#"><span class="nav-icon">▦</span>Minhas tarefas</a>
           <a class="nav-item" id="nav-today" href="#"><span class="nav-icon">◷</span>Hoje <span class="nav-count" id="today-count">0</span></a>
-          <a class="nav-item" id="nav-users" href="#" hidden><span class="nav-icon">👥</span>Usuários</a>
         </nav>
 
         <div class="sidebar-section">
@@ -377,17 +376,12 @@
       const loggedUsername = localStorage.getItem("tasklyUsername") || "Usuário";
       const loggedRole = localStorage.getItem("tasklyRole") || "usuario";
       const podeVerTudo = loggedRole === "admin" || loggedRole === "gerente";
-      const ehAdmin = loggedRole === "admin";
 
       const NOMES_PAPEL = { admin: "Administrador", gerente: "Gerente", usuario: "Usuário" };
 
       document.querySelector("#user-name").textContent = loggedUsername;
       document.querySelector("#user-avatar").textContent = loggedUsername.slice(0, 2).toUpperCase();
       document.querySelector("#user-role").textContent = NOMES_PAPEL[loggedRole] || "Usuário";
-
-      if (ehAdmin) {
-        document.querySelector("#nav-users").hidden = false;
-      }
 
       // ============================================
       // 3. MAPA DE ETIQUETAS
@@ -810,12 +804,18 @@
         document.querySelector("#delete-task").hidden = !task;
         document.querySelector("#form-error").textContent = "";
 
+        // Reseta o mínimo da data de término
+        document.querySelector("#end-date").min = "";
+
         if (task) {
           document.querySelector("#task-name").value = task.name;
           document.querySelector("#task-type").value = task.type;
           document.querySelector("#task-priority").value = task.priority;
           document.querySelector("#start-date").value = task.start;
           document.querySelector("#end-date").value = task.end;
+          
+          // Ao editar, já define o mínimo para não deixar escolher data anterior
+          document.querySelector("#end-date").min = task.start;
         }
         modal.hidden = false;
         document.querySelector("#task-name").focus();
@@ -828,7 +828,23 @@
       modal.addEventListener("click", (event) => { if (event.target === modal) closeModal(); });
 
       // ============================================
-      // 13. SALVAR
+      // 13. VALIDAÇÃO DE DATA (IMPEDE DATA FINAL ANTES DA INICIAL)
+      // ============================================
+      document.querySelector("#start-date").addEventListener("change", (e) => {
+        const startVal = e.target.value;
+        const endInput = document.querySelector("#end-date");
+        
+        // Define a data mínima do término igual à data de início
+        endInput.min = startVal;
+        
+        // Se a data de término atual for menor que a nova data de início, limpa ela
+        if (endInput.value && endInput.value < startVal) {
+          endInput.value = "";
+        }
+      });
+
+      // ============================================
+      // 14. SALVAR
       // ============================================
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -884,7 +900,7 @@
       });
 
       // ============================================
-      // 14. EXCLUIR
+      // 15. EXCLUIR
       // ============================================
       document.querySelector("#delete-task").addEventListener("click", async () => {
         const id = Number(document.querySelector("#editing-id").value);
@@ -901,7 +917,7 @@
       });
 
       // ============================================
-      // 14.5. FILTRO AVANÇADO
+      // 16. FILTRO AVANÇADO
       // ============================================
       const filterBtn = document.querySelector("#filter-button");
       const filterPanel = document.querySelector("#filter-panel");
@@ -940,7 +956,7 @@
       });
 
       // ============================================
-      // 15. BOTÕES EXTRAS
+      // 17. BOTÕES EXTRAS
       // ============================================
       document.querySelector("#see-all").addEventListener("click", () => {
         document.querySelector(".tasks-panel").classList.toggle("expanded");
@@ -961,7 +977,7 @@
       });
 
       // ============================================
-      // 16. TROCA DE VIEW
+      // 18. TROCA DE VIEW
       // ============================================
       viewButtons.forEach((button) => button.addEventListener("click", () => {
         activeView = button.dataset.view;
@@ -970,7 +986,7 @@
       }));
 
       // ============================================
-      // 17. MENU LATERAL
+      // 19. MENU LATERAL
       // ============================================
       const navAll = document.querySelector("#nav-all");
       const navToday = document.querySelector("#nav-today");
@@ -996,21 +1012,7 @@
       });
 
       // ============================================
-      // 17.5. MENU "USUÁRIOS" (só admin)
-      // ============================================
-      document.querySelector("#nav-users").addEventListener("click", async (event) => {
-        event.preventDefault();
-        try {
-          const usuarios = await apiFetch("/users");
-          const linhas = usuarios.map((u) => `#${u.id} — ${u.username} (${NOMES_PAPEL[u.role] || u.role})`).join("\n");
-          alert("Usuários cadastrados:\n\n" + linhas);
-        } catch (error) {
-          alert("Erro: " + error.message);
-        }
-      });
-
-      // ============================================
-      // 17.6. NAVEGAÇÃO ENTRE MESES
+      // 20. NAVEGAÇÃO ENTRE MESES
       // ============================================
       document.querySelector("#prev-month").addEventListener("click", () => {
         currentMonth--;
@@ -1034,7 +1036,7 @@
       });
 
       // ============================================
-      // 18. INICIALIZA
+      // 21. INICIALIZA
       // ============================================
       carregarTarefas();
       setInterval(renderNotificacoes, 60 * 1000);
