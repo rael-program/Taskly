@@ -3,3 +3,4 @@ taskly.db
 *.db
 *.db-*
 .env
+Taskly.exe
