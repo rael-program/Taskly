@@ -413,7 +413,7 @@
           Authorization: `Bearer ${localStorage.getItem("tasklyToken")}`,
           ...(options.headers || {}),
         };
-        const response = await fetch(`/api${path}`, { ...options, headers });
+        const response = await fetch(`https://taskly-api-olzm.onrender.com/api${path}`, { ...options, headers });
 
         if (response.status === 401) {
           localStorage.removeItem("tasklyToken");
