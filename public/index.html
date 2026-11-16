@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%236c63dc'/%3E%3Cpath d='M28 52 L44 68 L74 34' stroke='white' stroke-width='10' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E" />
+    <title>Agenda de tarefas</title>
+    <style>
+      :root{--ink:#263044;--muted:#8b94a7;--line:#e8ebf2;--surface:#fff;--bg:#f7f8fc;--violet:#6c63dc;--violet-light:#efefff;--blue:#4f8cf7;--orange:#f3a35b;--purple:#9b78ed}
+      *{box-sizing:border-box}
+      [hidden]{display:none!important}
+      body{margin:0;min-width:320px;color:var(--ink);background:var(--bg);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+      .login-container{display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px;background:var(--bg)}
+      .login-box{width:100%;max-width:380px;padding:40px;border-radius:12px;background:#fff;box-shadow:0 8px 30px #222a4b1a;text-align:center}
+      .login-logo{display:flex;width:48px;height:48px;align-items:center;justify-content:center;margin:0 auto 20px;border-radius:50%;color:#fff;background:var(--violet);font-size:26px;font-weight:700}
+      .login-subtitle{margin:0 0 8px;color:var(--violet);font-size:13px;font-weight:700}
+      .login-box h1{margin:0;font-size:28px}
+      .login-description{margin:10px 0 28px;color:var(--muted);font-size:14px}
+      .login-box form{text-align:left}
+      .login-box label{display:block;margin:0 0 7px;color:var(--ink);font-size:14px;font-weight:700}
+      .login-box input{width:100%;height:44px;margin-bottom:18px;padding:0 13px;border:1px solid var(--line);border-radius:6px;outline:0;color:var(--ink);font:inherit;font-size:14px}
+      .login-box input:focus{border-color:var(--violet);box-shadow:0 0 0 3px #6c63dc1f}
+
+      /* ✅ Wrapper da senha com o olhinho */
+      .password-wrap{position:relative;margin-bottom:18px}
+      .password-wrap input{margin-bottom:0;padding-right:44px}
+      .toggle-password{position:absolute;top:50%;right:6px;transform:translateY(-50%);width:32px;height:32px;display:grid;place-items:center;border:0;border-radius:6px;color:#98a0b1;background:transparent;cursor:pointer;padding:0;transition:color .15s}
+      .toggle-password:hover{color:var(--violet)}
+      .toggle-password:focus-visible{outline:2px solid var(--violet);outline-offset:2px}
+      .toggle-password svg{width:18px;height:18px;display:block}
+      .toggle-password .icon-eye-off{display:none}
+      .toggle-password.revealed .icon-eye{display:none}
+      .toggle-password.revealed .icon-eye-off{display:block}
+
+      .login-box form button[type="submit"]{width:100%;height:44px;margin-top:4px;border:0;border-radius:6px;color:#fff;background:var(--violet);cursor:pointer;font-size:14px;font-weight:700}
+      .login-box form button[type="submit"]:hover{background:#5d54ce}
+      .login-box form button[type="submit"]:disabled{background:#b4b1e4;cursor:not-allowed}
+      .forgot-password{display:inline-block;margin-top:20px;color:var(--violet);font-size:13px;text-decoration:none;border:0;background:none;cursor:pointer;padding:0;font-family:inherit}
+      .forgot-password:hover{text-decoration:underline}
+      .login-message{min-height:18px;margin:12px 0 0;color:#218653;font-size:13px;text-align:center}
+      .login-message.error{color:#c03945}
+      .switch-mode{margin:14px 0 0;font-size:12px;color:#8b94a7;text-align:center}
+      .switch-mode button{border:0;background:none;color:var(--violet);font-weight:700;cursor:pointer;font-size:12px;text-decoration:underline;font-family:inherit;padding:0}
+    </style>
+  </head>
+  <body>
+    <main class="login-container" id="login-screen">
+      <section class="login-box" aria-labelledby="login-title">
+        <div class="login-logo" aria-hidden="true">✓</div>
+        <p class="login-subtitle">Sistema de Tarefas Web</p>
+        <h1 id="login-title">Bem-vindo!</h1>
+        <p class="login-description" id="login-description">Entre para acessar suas tarefas.</p>
+
+        <form id="login-form" novalidate>
+          <div id="username-field">
+            <label for="username">Nome de usuário</label>
+            <input id="username" name="username" type="text" placeholder="Digite seu nome de usuário" autocomplete="username" minlength="3" />
+          </div>
+
+          <div id="password-field">
+            <label for="password" id="password-label">Senha</label>
+            <div class="password-wrap">
+              <input id="password" name="password" type="password" placeholder="Digite sua senha" autocomplete="current-password" minlength="6" />
+              <button type="button" class="toggle-password" data-target="password" aria-label="Mostrar senha" aria-pressed="false">
+                <!-- olho aberto (senha oculta) -->
+                <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                <!-- olho riscado (senha visível) -->
+                <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                  <line x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div id="confirm-field" hidden>
+            <label for="confirm">Confirmar senha</label>
+            <div class="password-wrap">
+              <input id="confirm" name="confirm" type="password" placeholder="Repita a senha" autocomplete="new-password" />
+              <button type="button" class="toggle-password" data-target="confirm" aria-label="Mostrar senha" aria-pressed="false">
+                <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                  <line x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" id="submit-button">Entrar</button>
+          <p id="login-message" class="login-message" role="status"></p>
+        </form>
+
+        <button type="button" class="forgot-password" id="forgot-password">Esqueci minha senha</button>
+
+        <p class="switch-mode">
+          <span id="switch-text">É novo por aqui?</span>
+          <button type="button" id="register-toggle">Cadastre-se aqui</button>
+        </p>
+      </section>
+    </main>
+
+    <script>
+      // ============================================
+      // CONFIGURAÇÃO
+      // ============================================
+      const API_BASE = "/api";
+      const RESET_TOKEN_KEY = "tasklyResetToken";
+
+      // ============================================
+      // ESTADO
+      // ============================================
+      // "login" | "register" | "forgot" | "reset"
+      let mode = "login";
+
+      // ============================================
+      // ELEMENTOS
+      // ============================================
+      const form = document.querySelector("#login-form");
+      const message = document.querySelector("#login-message");
+      const submitButton = document.querySelector("#submit-button");
+      const title = document.querySelector("#login-title");
+      const description = document.querySelector("#login-description");
+      const registerToggle = document.querySelector("#register-toggle");
+      const switchText = document.querySelector("#switch-text");
+      const forgotButton = document.querySelector("#forgot-password");
+
+      const usernameField = document.querySelector("#username-field");
+      const passwordField = document.querySelector("#password-field");
+      const passwordLabel = document.querySelector("#password-label");
+      const confirmField = document.querySelector("#confirm-field");
+
+      const usernameInput = document.querySelector("#username");
+      const passwordInput = document.querySelector("#password");
+      const confirmInput = document.querySelector("#confirm");
+
+      // ============================================
+      // OLHINHO DE MOSTRAR/OCULTAR SENHA
+      // ============================================
+      function resetPasswordToggles() {
+        document.querySelectorAll(".toggle-password").forEach((btn) => {
+          btn.classList.remove("revealed");
+          btn.setAttribute("aria-pressed", "false");
+          btn.setAttribute("aria-label", "Mostrar senha");
+          const input = document.getElementById(btn.dataset.target);
+          if (input) input.type = "password";
+        });
+      }
+
+      document.querySelectorAll(".toggle-password").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const input = document.getElementById(btn.dataset.target);
+          if (!input) return;
+
+          const estaOculta = input.type === "password";
+          input.type = estaOculta ? "text" : "password";
+          btn.classList.toggle("revealed", estaOculta);
+          btn.setAttribute("aria-pressed", String(estaOculta));
+          btn.setAttribute("aria-label", estaOculta ? "Ocultar senha" : "Mostrar senha");
+
+          // Mantém o foco no input (boa UX)
+          input.focus();
+        });
+      });
+
+      // ============================================
+      // ALTERNAR ENTRE MODOS
+      // ============================================
+      function setMode(next) {
+        mode = next;
+        form.reset();
+        resetPasswordToggles(); // ✅ sempre volta a senha para oculta
+        message.textContent = "";
+        message.className = "login-message";
+        submitButton.disabled = false;
+
+        usernameField.hidden = false;
+        passwordField.hidden = false;
+        confirmField.hidden = true;
+        passwordLabel.textContent = "Senha";
+        usernameInput.required = false;
+        passwordInput.required = false;
+        confirmInput.required = false;
+        forgotButton.hidden = false;
+
+        if (next === "login") {
+          title.textContent = "Bem-vindo!";
+          description.textContent = "Entre para acessar suas tarefas.";
+          submitButton.textContent = "Entrar";
+          switchText.textContent = "É novo por aqui?";
+          registerToggle.textContent = "Cadastre-se aqui";
+          usernameInput.required = true;
+          passwordInput.required = true;
+          passwordInput.autocomplete = "current-password";
+          passwordInput.placeholder = "Digite sua senha";
+          usernameInput.placeholder = "Digite seu nome de usuário";
+        }
+
+        if (next === "register") {
+          title.textContent = "Criar conta";
+          description.textContent = "Leva menos de um minuto.";
+          submitButton.textContent = "Criar conta";
+          switchText.textContent = "Já tem conta?";
+          registerToggle.textContent = "Entre aqui";
+          usernameInput.required = true;
+          passwordInput.required = true;
+          confirmField.hidden = false;
+          confirmInput.required = true;
+          passwordInput.autocomplete = "new-password";
+          passwordInput.placeholder = "Crie uma senha (mín. 6 caracteres)";
+          usernameInput.placeholder = "Escolha um nome de usuário";
+        }
+
+        if (next === "forgot") {
+          title.textContent = "Esqueci a senha";
+          description.textContent = "Informe seu usuário para redefinir a senha.";
+          submitButton.textContent = "Continuar";
+          switchText.textContent = "Lembrou a senha?";
+          registerToggle.textContent = "Voltar ao login";
+          forgotButton.hidden = true;
+          usernameInput.required = true;
+          passwordField.hidden = true;
+          usernameInput.placeholder = "Digite seu nome de usuário";
+        }
+
+        if (next === "reset") {
+          title.textContent = "Defina sua nova senha";
+          description.textContent = "Escolha uma nova senha para sua conta.";
+          submitButton.textContent = "Salvar nova senha";
+          switchText.textContent = "Lembrou a senha?";
+          registerToggle.textContent = "Voltar ao login";
+          forgotButton.hidden = true;
+          usernameField.hidden = true;
+          confirmField.hidden = false;
+          passwordLabel.textContent = "Nova senha";
+          passwordInput.required = true;
+          confirmInput.required = true;
+          passwordInput.autocomplete = "new-password";
+          passwordInput.placeholder = "Nova senha (mín. 6 caracteres)";
+        }
+      }
+
+      registerToggle.addEventListener("click", () => {
+        if (mode === "forgot" || mode === "reset") {
+          localStorage.removeItem(RESET_TOKEN_KEY);
+          setMode("login");
+          return;
+        }
+        setMode(mode === "login" ? "register" : "login");
+      });
+
+      forgotButton.addEventListener("click", () => setMode("forgot"));
+
+      // ============================================
+      // CHAMAR API
+      // ============================================
+      async function callApi(path, body) {
+        const response = await fetch(`${API_BASE}${path}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        let data = {};
+        try {
+          data = await response.json();
+        } catch {
+          data = {};
+        }
+
+        if (!response.ok) {
+          throw new Error(data.error || "Erro ao comunicar com o servidor.");
+        }
+        return data;
+      }
+
+      // ============================================
+      // SUBMIT
+      // ============================================
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        message.textContent = "";
+        message.className = "login-message";
+
+        const username = usernameInput.value.trim();
+        const password = passwordInput.value;
+
+        const originalText = submitButton.textContent;
+        submitButton.disabled = true;
+
+        try {
+          // ---------- FORGOT ----------
+          if (mode === "forgot") {
+            submitButton.textContent = "Verificando...";
+            if (!username) throw new Error("Informe o nome de usuário.");
+
+            const data = await callApi("/forgot-password", { username });
+            if (data.token) localStorage.setItem(RESET_TOKEN_KEY, data.token);
+
+            message.textContent = "Usuário verificado. Defina sua nova senha.";
+            message.className = "login-message";
+
+            setTimeout(() => {
+              setMode("reset");
+              message.textContent = "Digite sua nova senha acima e confirme.";
+            }, 800);
+            return;
+          }
+
+          // ---------- RESET ----------
+          if (mode === "reset") {
+            submitButton.textContent = "Salvando...";
+            const token = localStorage.getItem(RESET_TOKEN_KEY);
+            if (!token) throw new Error("Sessão expirada. Comece de novo.");
+            if (password.length < 6) throw new Error("Senha deve ter ao menos 6 caracteres.");
+            if (password !== confirmInput.value) throw new Error("As senhas não coincidem.");
+
+            await callApi("/reset-password", { token, newPassword: password });
+            localStorage.removeItem(RESET_TOKEN_KEY);
+
+            message.textContent = "Senha redefinida! Redirecionando para o login...";
+            message.className = "login-message";
+            submitButton.disabled = false;
+            setTimeout(() => setMode("login"), 1200);
+            return;
+          }
+
+          // ---------- LOGIN / REGISTER ----------
+          if (username.length < 3) throw new Error("Usuário deve ter ao menos 3 caracteres.");
+          if (password.length < 6) throw new Error("Senha deve ter ao menos 6 caracteres.");
+          if (mode === "register" && password !== confirmInput.value) {
+            throw new Error("As senhas não coincidem.");
+          }
+
+          submitButton.textContent = mode === "login" ? "Entrando..." : "Criando...";
+          const endpoint = mode === "login" ? "/login" : "/register";
+          const data = await callApi(endpoint, { username, password });
+
+          localStorage.setItem("tasklyToken", data.token);
+          localStorage.setItem("tasklyUsername", data.user.username);
+          localStorage.setItem("tasklyRole", data.user.role);
+
+          message.textContent = "Sucesso! Redirecionando...";
+          message.className = "login-message";
+
+          setTimeout(() => {
+            window.location.href = "tarefas.html";
+          }, 300);
+        } catch (error) {
+          message.textContent = error.message;
+          message.className = "login-message error";
+          submitButton.disabled = false;
+          submitButton.textContent = originalText;
+        }
+      });
+
+      // ============================================
+      // SE JÁ ESTIVER LOGADO, PULA DIRETO
+      // ============================================
+      if (localStorage.getItem("tasklyToken")) {
+        window.location.replace("tarefas.html");
+      }
+    </script>
+  </body>
+</html>
