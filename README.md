@@ -42,10 +42,12 @@ O sistema possui três níveis de acesso: Administrador, Gerente e Usuário Comu
 
 ## 📸 Screenshots
 
-\<p align="center">
-&#x20; \<img src="./images/Login.png" width="45%" alt="Tela de Login do Taskly">
-&#x20; \<img src="./images/Tarefas.png" width="45%" alt="Calendário e gerenciamento de tarefas">
-\</p>
+
+<p align="center">
+  <img src="./images/Login.png" width="45%" alt="Tela de Login do Taskly">
+  <img src="./images/Tarefas.png" width="45%" alt="Calendário e gerenciamento de tarefas">
+</p>
+
 
 ## 🛠️ Tecnologias Utilizadas
 
