@@ -158,11 +158,56 @@
       .task-item{display:flex;align-items:flex-start;gap:11px;min-height:48px}
       .task-color{width:4px;height:43px;border-radius:4px;flex:0 0 auto}
       .task-info{min-width:0;flex:1}
-      .task-info strong{display:block;overflow:hidden;color:#505b71;font-size:11px;text-overflow:ellipsis;white-space:nowrap}
+      .task-info strong{display:flex;align-items:center;gap:8px;overflow:hidden;color:#505b71;font-size:11px;text-overflow:ellipsis;white-space:nowrap}
+      
+      /* BOTÃO DE CONCLUIR */
+      .task-complete-btn {
+        background: #f8fafc;
+        border: 2px solid #cbd5e1;
+        border-radius: 6px;
+        width: 22px;
+        height: 22px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: transparent;
+        font-size: 14px;
+        font-weight: 900;
+        flex-shrink: 0;
+        transition: all .2s;
+        padding: 0;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      }
+      .task-complete-btn:hover {
+        border-color: var(--green);
+        color: var(--green);
+        background: #e6f4ec;
+        transform: scale(1.05);
+      }
+      .task-complete-btn.completed {
+        background: var(--green);
+        border-color: var(--green);
+        color: white;
+      }
+      .task-complete-btn.completed:hover {
+        background: var(--red);
+        border-color: var(--red);
+        color: white;
+        transform: scale(1.05);
+      }
+
       .task-info p{margin:5px 0 7px;color:#a2aaba;font-size:9px}
       .task-info p span{padding:0 3px;color:#c8cdd7}
       .task-type{padding:4px 7px;border-radius:4px;color:#8490a6;background:#f3f5f9;font-size:9px;display:inline-block}
       .item-menu{padding:0;border:0;color:#b8bfcc;background:transparent;cursor:pointer;font-size:12px;letter-spacing:1px}
+      
+      /* Estilo para tarefa concluída */
+      .task-item.completed .task-info strong,
+      .task-item.completed .task-info p,
+      .task-item.completed .task-type {text-decoration:line-through;opacity:0.5;}
+      .task-item.completed .task-color {opacity:0.5;}
+
       .see-all{width:100%;margin-top:25px;padding:14px 0;border:0;border-top:1px solid var(--line);color:var(--violet);background:transparent;cursor:pointer;font-size:11px;font-weight:700}
       .see-all span{margin-left:7px;font-size:16px}
       .modal-backdrop{position:fixed;inset:0;display:grid;place-items:center;padding:20px;background:#26304466;z-index:5}
@@ -219,7 +264,6 @@
         <nav class="main-nav" aria-label="Navegação principal">
           <a class="nav-item active" id="nav-all" href="#"><span class="nav-icon">▦</span>Minhas tarefas</a>
           <a class="nav-item" id="nav-today" href="#"><span class="nav-icon">◷</span>Hoje <span class="nav-count" id="today-count">0</span></a>
-          <a class="nav-item" id="nav-users" href="#" hidden><span class="nav-icon">👥</span>Usuários</a>
         </nav>
 
         <div class="sidebar-section">
@@ -377,7 +421,6 @@
       const loggedUsername = localStorage.getItem("tasklyUsername") || "Usuário";
       const loggedRole = localStorage.getItem("tasklyRole") || "usuario";
       const podeVerTudo = loggedRole === "admin" || loggedRole === "gerente";
-      const ehAdmin = loggedRole === "admin";
 
       const NOMES_PAPEL = { admin: "Administrador", gerente: "Gerente", usuario: "Usuário" };
 
@@ -385,30 +428,17 @@
       document.querySelector("#user-avatar").textContent = loggedUsername.slice(0, 2).toUpperCase();
       document.querySelector("#user-role").textContent = NOMES_PAPEL[loggedRole] || "Usuário";
 
-      if (ehAdmin) {
-        document.querySelector("#nav-users").hidden = false;
-      }
-
       // ============================================
       // 3. MAPA DE ETIQUETAS
       // ============================================
       const ETIQUETAS = [
-        { nome: "Trabalho", cor: "blue" },
-        { nome: "Pessoal", cor: "purple" },
-        { nome: "Projetos", cor: "orange" },
-        { nome: "Reunião", cor: "pink" },
-        { nome: "Estudos", cor: "green" },
-        { nome: "Saúde", cor: "red" },
-        { nome: "Finanças", cor: "yellow" },
-        { nome: "Viagem", cor: "teal" },
-        { nome: "Compras", cor: "magenta" },
+        { nome: "Trabalho", cor: "blue" }, { nome: "Pessoal", cor: "purple" }, { nome: "Projetos", cor: "orange" },
+        { nome: "Reunião", cor: "pink" }, { nome: "Estudos", cor: "green" }, { nome: "Saúde", cor: "red" },
+        { nome: "Finanças", cor: "yellow" }, { nome: "Viagem", cor: "teal" }, { nome: "Compras", cor: "magenta" },
         { nome: "Outros", cor: "gray" },
       ];
 
-      const CORES_POR_TIPO = ETIQUETAS.reduce((acc, e) => {
-        acc[e.nome] = e.cor;
-        return acc;
-      }, {});
+      const CORES_POR_TIPO = ETIQUETAS.reduce((acc, e) => { acc[e.nome] = e.cor; return acc; }, {});
 
       // ============================================
       // 4. HELPERS DE API
@@ -476,13 +506,13 @@
 
       function tarefasDeHoje() {
         const hoje = localDate(new Date());
-        return tasks.filter((task) => task.start === hoje || task.end === hoje);
+        return tasks.filter((task) => !task.completed && (task.start === hoje || task.end === hoje));
       }
 
       function aplicarFiltro(lista) {
         if (filtroAtivo === "today") return lista.filter((t) => {
           const hoje = localDate(new Date());
-          return t.start === hoje || t.end === hoje;
+          return !t.completed && (t.start === hoje || t.end === hoje);
         });
         if (filtroAtivo.startsWith("tag:")) {
           const etiqueta = filtroAtivo.slice(4);
@@ -520,7 +550,7 @@
         const container = document.querySelector("#tags-list");
 
         container.innerHTML = ETIQUETAS.map((etq) => {
-          const count = tasks.filter((t) => t.type === etq.nome).length;
+          const count = tasks.filter((t) => t.type === etq.nome && !t.completed).length;
           const ativo = filtroAtivo === `tag:${etq.nome}`;
           return `
             <a class="tag-link ${ativo ? "active" : ""}" href="#" data-tag="${etq.nome}">
@@ -580,7 +610,7 @@
       function mostrarToastsNotificacoes() {
         const notificacoes = gerarNotificacoes();
         if (notificacoes.length === 0) {
-          setTimeout(() => mostrarToast({ nivel: "ok", icone: "✓", titulo: "Tudo em ordem!", texto: "Nenhuma tarefa próxima do prazo." }), 600);
+          setTimeout(() => mostrarToast({ nivel: "ok", icone: "✓", titulo: "Tudo em ordem!", texto: "Nenhuma tarefa pendente próxima do prazo." }), 600);
           return;
         }
         const limite = 5;
@@ -605,6 +635,8 @@
       function gerarNotificacoes() {
         const notificacoes = [];
         tasks.forEach((task) => {
+          if (task.completed) return; // Se estiver concluída, não gera alerta
+          
           const dias = diasAte(task.end);
           if (dias < 0) notificacoes.push({ id: task.id, nivel: "vencida", icone: "⚠️", titulo: task.name, texto: `Venceu há ${Math.abs(dias)} dia${Math.abs(dias) === 1 ? "" : "s"}`, peso: dias });
           else if (dias === 0) notificacoes.push({ id: task.id, nivel: "hoje", icone: "⏰", titulo: task.name, texto: "Termina hoje!", peso: 0 });
@@ -631,7 +663,7 @@
         }
 
         if (notificacoes.length === 0) {
-          lista.innerHTML = `<div class="notification-empty"><div class="notification-empty-icon">✓</div><strong>Tudo em ordem!</strong><p>Nenhuma tarefa próxima do prazo.</p></div>`;
+          lista.innerHTML = `<div class="notification-empty"><div class="notification-empty-icon">✓</div><strong>Tudo em ordem!</strong><p>Nenhuma tarefa pendente próxima do prazo.</p></div>`;
           rodape.textContent = "";
         } else {
           lista.innerHTML = notificacoes.map((n) => `
@@ -675,9 +707,10 @@
           const dayTasks = tasks.filter((task) => task.start === date || task.end === date);
           const ehHoje = (currentYear === today.getFullYear() && currentMonth === today.getMonth() && day === today.getDate());
           html += `<div class="calendar-day ${ehHoje ? "today" : ""}"><span class="day-number">${day}</span>${dayTasks.slice(0, 2).map((task) => {
-            const urgente = diasAte(task.end) <= 3;
+            const urgente = !task.completed && diasAte(task.end) <= 3;
             const cor = CORES_POR_TIPO[task.type] || "blue";
-            return `<button class="calendar-task ${urgente ? "vencendo" : cor}" data-edit="${task.id}">${escapeHtml(task.name)}</button>`;
+            const riscado = task.completed ? "text-decoration:line-through;opacity:0.6;" : "";
+            return `<button class="calendar-task ${urgente ? "vencendo" : cor}" style="${riscado}" data-edit="${task.id}">${escapeHtml(task.name)}</button>`;
           }).join("")}${dayTasks.length > 2 ? `<small>+${dayTasks.length - 2} mais</small>` : ""}</div>`;
         }
         for (let day = 1; (firstDay + days + day - 1) % 7 !== 0; day++) html += `<div class="calendar-day muted-day"><span>${day}</span></div>`;
@@ -686,10 +719,7 @@
 
       function renderWeek() {
         const ehMesAtual = (currentYear === today.getFullYear() && currentMonth === today.getMonth());
-        const base = ehMesAtual
-          ? new Date(currentYear, currentMonth, today.getDate())
-          : new Date(currentYear, currentMonth, 1);
-
+        const base = ehMesAtual ? new Date(currentYear, currentMonth, today.getDate()) : new Date(currentYear, currentMonth, 1);
         const weekStart = new Date(base);
         weekStart.setDate(base.getDate() - base.getDay());
 
@@ -703,7 +733,8 @@
           weekdays.innerHTML += `<span>${new Intl.DateTimeFormat("pt-BR", { weekday: "short" }).format(dateObject).replace(".", "").toUpperCase()}</span>`;
           html += `<div class="calendar-day ${date === localDate(today) ? "today" : ""}"><span class="day-number">${dateObject.getDate()}</span>${dayTasks.map((task) => {
             const cor = CORES_POR_TIPO[task.type] || "blue";
-            return `<button class="calendar-task ${cor}" data-edit="${task.id}">${escapeHtml(task.name)}</button>`;
+            const riscado = task.completed ? "text-decoration:line-through;opacity:0.6;" : "";
+            return `<button class="calendar-task ${cor}" style="${riscado}" data-edit="${task.id}">${escapeHtml(task.name)}</button>`;
           }).join("")}</div>`;
         }
         renderGrid(html);
@@ -716,7 +747,8 @@
         grid.className = "calendar-grid list-calendar";
         grid.innerHTML = sortedTasks.length ? sortedTasks.map((task) => {
           const cor = CORES_POR_TIPO[task.type] || "blue";
-          return `<div class="calendar-day"><span class="day-number">${dateLabel(task.start)}${task.end !== task.start ? ` – ${dateLabel(task.end)}` : ""}</span><button class="calendar-task ${cor}" data-edit="${task.id}">${escapeHtml(task.name)}</button><span class="list-task-type">${escapeHtml(task.type)} · ${escapeHtml(task.priority)}</span></div>`;
+          const riscado = task.completed ? "text-decoration:line-through;opacity:0.6;" : "";
+          return `<div class="calendar-day"><span class="day-number">${dateLabel(task.start)}${task.end !== task.start ? ` – ${dateLabel(task.end)}` : ""}</span><button class="calendar-task ${cor}" style="${riscado}" data-edit="${task.id}">${escapeHtml(task.name)}</button><span class="list-task-type">${escapeHtml(task.type)} · ${escapeHtml(task.priority)}</span></div>`;
         }).join("") : `<div class="empty-state">${mensagemVazia()}</div>`;
         grid.querySelectorAll("[data-edit]").forEach((button) => button.addEventListener("click", () => openModal(Number(button.dataset.edit))));
       }
@@ -747,10 +779,15 @@
 
         list.innerHTML = visibleTasks.length
           ? visibleTasks.slice().sort((a, b) => a.start.localeCompare(b.start)).map((task) => `
-              <article class="task-item">
+              <article class="task-item ${task.completed ? "completed" : ""}">
                 <div class="task-color ${CORES_POR_TIPO[task.type] || "blue"}"></div>
                 <div class="task-info">
-                  <strong>${escapeHtml(task.name)}</strong>
+                  <strong>
+                    <button class="task-complete-btn ${task.completed ? "completed" : ""}" data-id="${task.id}" title="${task.completed ? 'Desmarcar conclusão' : 'Marcar como concluída'}">
+                      ${task.completed ? "✓" : ""}
+                    </button>
+                    ${escapeHtml(task.name)}
+                  </strong>
                   <p>${dateLabel(task.start)}${task.end !== task.start ? ` – ${dateLabel(task.end)}` : ""}</p>
                   <span class="task-type">${escapeHtml(task.type)}</span>
                   ${podeVerTudo && task.owner ? `<span class="task-type" style="margin-left:6px;background:#efefff;color:#6c63dc">👤 ${escapeHtml(task.owner)}</span>` : ""}
@@ -767,6 +804,32 @@
         document.querySelector("#task-total").textContent = `${baseTasks.length} ${baseTasks.length === 1 ? "tarefa agendada" : "tarefas agendadas"}`;
 
         list.querySelectorAll("[data-menu]").forEach((button) => button.addEventListener("click", () => openModal(Number(button.dataset.menu))));
+        
+        // Listener para o novo botão de concluir
+        list.querySelectorAll(".task-complete-btn").forEach((btn) => {
+          btn.addEventListener("click", async (e) => {
+            e.preventDefault();
+            const id = Number(e.target.dataset.id);
+            const taskIndex = tasks.findIndex((t) => t.id === id);
+            if (taskIndex === -1) return;
+
+            const completed = !tasks[taskIndex].completed;
+            
+            // Atualização otimista (muda na tela na hora)
+            tasks[taskIndex].completed = completed;
+            renderTudo();
+
+            try {
+              await apiFetch(`/tasks/${id}`, { method: "PUT", body: JSON.stringify({ completed }) });
+            } catch (error) {
+              alert("Erro ao atualizar o status da tarefa: " + error.message);
+              // Reverte em caso de erro
+              tasks[taskIndex].completed = !completed;
+              renderTudo();
+            }
+          });
+        });
+
         atualizarContadorHoje();
       }
 
@@ -809,8 +872,6 @@
         document.querySelector(".modal-header .eyebrow").textContent = task ? "EDITAR TAREFA" : "NOVA TAREFA";
         document.querySelector("#delete-task").hidden = !task;
         document.querySelector("#form-error").textContent = "";
-
-        // Reseta o mínimo da data de término
         document.querySelector("#end-date").min = "";
 
         if (task) {
@@ -819,8 +880,6 @@
           document.querySelector("#task-priority").value = task.priority;
           document.querySelector("#start-date").value = task.start;
           document.querySelector("#end-date").value = task.end;
-          
-          // Ao editar, já define o mínimo para não deixar escolher data anterior
           document.querySelector("#end-date").min = task.start;
         }
         modal.hidden = false;
@@ -834,16 +893,12 @@
       modal.addEventListener("click", (event) => { if (event.target === modal) closeModal(); });
 
       // ============================================
-      // 13. VALIDAÇÃO DE DATA (IMPEDE DATA FINAL ANTES DA INICIAL)
+      // 13. VALIDAÇÃO DE DATA
       // ============================================
       document.querySelector("#start-date").addEventListener("change", (e) => {
         const startVal = e.target.value;
         const endInput = document.querySelector("#end-date");
-        
-        // Define a data mínima do término igual à data de início
         endInput.min = startVal;
-        
-        // Se a data de término atual for menor que a nova data de início, limpa ela
         if (endInput.value && endInput.value < startVal) {
           endInput.value = "";
         }
@@ -1018,21 +1073,7 @@
       });
 
       // ============================================
-      // 19.5. MENU "USUÁRIOS" (só admin)
-      // ============================================
-      document.querySelector("#nav-users").addEventListener("click", async (event) => {
-        event.preventDefault();
-        try {
-          const usuarios = await apiFetch("/users");
-          const linhas = usuarios.map((u) => `#${u.id} — ${u.username} (${NOMES_PAPEL[u.role] || u.role})`).join("\n");
-          alert("Usuários cadastrados:\n\n" + linhas);
-        } catch (error) {
-          alert("Erro: " + error.message);
-        }
-      });
-
-      // ============================================
-      // 19.6. NAVEGAÇÃO ENTRE MESES
+      // 20. NAVEGAÇÃO ENTRE MESES
       // ============================================
       document.querySelector("#prev-month").addEventListener("click", () => {
         currentMonth--;
@@ -1056,7 +1097,7 @@
       });
 
       // ============================================
-      // 20. INICIALIZA
+      // 21. INICIALIZA
       // ============================================
       carregarTarefas();
       setInterval(renderNotificacoes, 60 * 1000);

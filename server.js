@@ -21,31 +21,24 @@ const SECRET = process.env.JWT_SECRET || "segredo-padrao";
 
 app.use(cors());
 app.use(express.json());
-// ✅ Garante que o Express ache a pasta public dentro do executável
 app.use(express.static(path.join(__dirname, "public")));
 
 // ============================================
 // 3. BANCO DE DADOS (SQLite)
 // ============================================
-// ✅ Se estiver no Render, usa o disco persistente. 
-// Se for .exe (caxa), salva na mesma pasta onde o .exe está.
-// Se for local, salva na pasta do projeto.
 let dbFolder;
 if (process.env.RENDER) {
   dbFolder = "/var/data";
 } else if (typeof process.pkg !== "undefined") {
-  dbFolder = path.dirname(process.execPath); // Pasta do .exe
+  dbFolder = path.dirname(process.execPath);
 } else {
-  dbFolder = __dirname; // Pasta do projeto local
+  dbFolder = __dirname;
 }
 
 const dbPath = path.join(dbFolder, "taskly.db");
-
-// ✅ Garante que a pasta do banco de dados exista
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
 const db = new Database(dbPath);
-
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 db.pragma("busy_timeout = 5000");
@@ -63,7 +56,6 @@ db.exec(`
   );
 `);
 
-// Migração: adiciona colunas novas caso o banco já exista
 const userCols = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
 if (!userCols.includes("reset_token")) db.exec("ALTER TABLE users ADD COLUMN reset_token TEXT");
 if (!userCols.includes("reset_token_expires")) db.exec("ALTER TABLE users ADD COLUMN reset_token_expires TEXT");
@@ -80,10 +72,20 @@ db.exec(`
     start_date  TEXT    NOT NULL,
     end_date    TEXT    NOT NULL,
     color       TEXT    NOT NULL,
+    completed   INTEGER DEFAULT 0,
     created_at  TEXT    DEFAULT (datetime('now')),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 `);
+
+// Migração para adicionar a coluna 'completed' se o banco for antigo
+try {
+  const taskCols = db.prepare("PRAGMA table_info(tasks)").all().map(c => c.name);
+  if (!taskCols.includes("completed")) {
+    db.exec("ALTER TABLE tasks ADD COLUMN completed INTEGER DEFAULT 0");
+    console.log("✅ Coluna 'completed' adicionada na tabela tasks.");
+  }
+} catch {}
 
 db.exec(`CREATE INDEX IF NOT EXISTS idx_tasks_user ON tasks(user_id);`);
 
@@ -103,25 +105,18 @@ if (temAdmin === 0) {
     console.log(`👑 Usuário #${primeiro.id} promovido a admin.`);
   }
 }
-
 console.log("✅ Banco de dados pronto.");
 
 // ============================================
 // 4. FUNÇÕES AUXILIARES
 // ============================================
 function gerarToken(user) {
-  return jwt.sign(
-    { id: user.id, username: user.username, role: user.role },
-    SECRET,
-    { expiresIn: "1d" }
-  );
+  return jwt.sign({ id: user.id, username: user.username, role: user.role }, SECRET, { expiresIn: "1d" });
 }
 
 function autenticar(req, res, next) {
   const header = req.headers.authorization;
-  if (!header || !header.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Token não fornecido." });
-  }
+  if (!header || !header.startsWith("Bearer ")) return res.status(401).json({ error: "Token não fornecido." });
   try {
     const payload = jwt.verify(header.split(" ")[1], SECRET);
     req.user = { id: payload.id, username: payload.username, role: payload.role };
@@ -140,15 +135,14 @@ function taskToJson(row) {
     start: row.start_date,
     end: row.end_date,
     color: row.color,
+    completed: Boolean(row.completed), // <-- NOVO CAMPO AQUI
   };
 }
 
 // ============================================
 // 5. ROTAS DE AUTENTICAÇÃO
 // ============================================
-app.get("/", (_req, res) => {
-  res.json({ ok: true, mensagem: "API Taskly funcionando!" });
-});
+app.get("/", (_req, res) => { res.json({ ok: true, mensagem: "API Taskly funcionando!" }); });
 
 app.post("/api/register", async (req, res) => {
   const { username, password } = req.body || {};
@@ -163,9 +157,7 @@ app.post("/api/register", async (req, res) => {
   const role = total === 0 ? "admin" : "usuario";
 
   const passwordHash = await bcrypt.hash(password, 10);
-  const info = db
-    .prepare("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)")
-    .run(username, passwordHash, role);
+  const info = db.prepare("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)").run(username, passwordHash, role);
 
   const user = { id: info.lastInsertRowid, username, role };
   const token = gerarToken(user);
@@ -191,16 +183,14 @@ app.post("/api/forgot-password", (req, res) => {
   if (!username) return res.status(400).json({ error: "Informe o nome de usuário." });
 
   const user = db.prepare("SELECT * FROM users WHERE username = ?").get(username);
-  if (!user) {
-    return res.json({ message: "Se o usuário existir, um token de redefinição foi gerado." });
-  }
+  if (!user) return res.json({ message: "Se o usuário existir, um token de redefinição foi gerado." });
 
   const token = crypto.randomBytes(32).toString("hex");
   const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
   db.prepare("UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?").run(token, expires, user.id);
 
   console.log("\n============================================");
-  console.log("🔑  RESET DE SENHA SOLICITADO");
+  console.log("    RESET DE SENHA SOLICITADO");
   console.log(`    Usuário: ${user.username}`);
   console.log(`    Token:   ${token}`);
   console.log("============================================\n");
@@ -215,14 +205,10 @@ app.post("/api/reset-password", async (req, res) => {
 
   const user = db.prepare("SELECT * FROM users WHERE reset_token = ?").get(token);
   if (!user) return res.status(400).json({ error: "Token inválido." });
-  if (!user.reset_token_expires || new Date(user.reset_token_expires) < new Date()) {
-    return res.status(400).json({ error: "Token expirado. Solicite um novo." });
-  }
+  if (!user.reset_token_expires || new Date(user.reset_token_expires) < new Date()) return res.status(400).json({ error: "Token expirado. Solicite um novo." });
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
-  db.prepare("UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?")
-    .run(passwordHash, user.id);
-
+  db.prepare("UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?").run(passwordHash, user.id);
   res.json({ message: "Senha redefinida com sucesso. Faça login novamente." });
 });
 
@@ -240,13 +226,10 @@ app.post("/api/change-password", autenticar, async (req, res) => {
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
   db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(passwordHash, user.id);
-
   res.json({ message: "Senha alterada com sucesso." });
 });
 
-app.get("/api/me", autenticar, (req, res) => {
-  res.json({ user: req.user });
-});
+app.get("/api/me", autenticar, (req, res) => { res.json({ user: req.user }); });
 
 // ============================================
 // 6. CRUD DE TAREFAS
@@ -254,12 +237,7 @@ app.get("/api/me", autenticar, (req, res) => {
 app.get("/api/tasks", autenticar, (req, res) => {
   let rows;
   if (req.user.role === "admin" || req.user.role === "gerente") {
-    rows = db.prepare(`
-      SELECT tasks.*, users.username AS owner_name
-        FROM tasks
-        JOIN users ON users.id = tasks.user_id
-    ORDER BY tasks.start_date ASC, tasks.id ASC
-    `).all();
+    rows = db.prepare(`SELECT tasks.*, users.username AS owner_name FROM tasks JOIN users ON users.id = tasks.user_id ORDER BY tasks.start_date ASC, tasks.id ASC`).all();
   } else {
     rows = db.prepare("SELECT * FROM tasks WHERE user_id = ? ORDER BY start_date ASC, id ASC").all(req.user.id);
   }
@@ -268,25 +246,10 @@ app.get("/api/tasks", autenticar, (req, res) => {
 
 app.post("/api/tasks", autenticar, (req, res) => {
   const { name, type, priority, start, end, color } = req.body || {};
-  if (!name || !type || !priority || !start || !end) {
-    return res.status(400).json({ error: "Preencha todos os campos obrigatórios." });
-  }
-  if (end < start) {
-    return res.status(400).json({ error: "A data de término deve ser posterior à data de início." });
-  }
+  if (!name || !type || !priority || !start || !end) return res.status(400).json({ error: "Preencha todos os campos obrigatórios." });
+  if (end < start) return res.status(400).json({ error: "A data de término deve ser posterior à data de início." });
 
-  const info = db.prepare(`
-    INSERT INTO tasks (user_id, name, type, priority, start_date, end_date, color)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    req.user.id,
-    String(name).trim(),
-    type,
-    priority,
-    start,
-    end,
-    color || "#6c63dc"
-  );
+  const info = db.prepare(`INSERT INTO tasks (user_id, name, type, priority, start_date, end_date, color, completed) VALUES (?, ?, ?, ?, ?, ?, ?, 0)`).run(req.user.id, String(name).trim(), type, priority, start, end, color || "#6c63dc");
 
   const row = db.prepare("SELECT * FROM tasks WHERE id = ?").get(info.lastInsertRowid);
   res.status(201).json({ ...taskToJson(row), owner: req.user.username });
@@ -294,27 +257,26 @@ app.post("/api/tasks", autenticar, (req, res) => {
 
 app.put("/api/tasks/:id", autenticar, (req, res) => {
   const id = Number(req.params.id);
-  const { name, type, priority, start, end, color } = req.body || {};
+  const { name, type, priority, start, end, color, completed } = req.body || {};
 
   const tarefa = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
   if (!tarefa) return res.status(404).json({ error: "Tarefa não encontrada." });
+  if (req.user.role !== "admin" && tarefa.user_id !== req.user.id) return res.status(403).json({ error: "Sem permissão para editar esta tarefa." });
 
-  if (req.user.role !== "admin" && tarefa.user_id !== req.user.id) {
-    return res.status(403).json({ error: "Sem permissão para editar esta tarefa." });
+  // Se for apenas atualização do checkbox de concluído
+  if (completed !== undefined && Object.keys(req.body).length === 1) {
+    db.prepare("UPDATE tasks SET completed = ? WHERE id = ?").run(completed ? 1 : 0, id);
+    const row = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
+    return res.json(taskToJson(row));
   }
 
-  if (!name || !type || !priority || !start || !end) {
-    return res.status(400).json({ error: "Preencha todos os campos obrigatórios." });
-  }
-  if (end < start) {
-    return res.status(400).json({ error: "A data de término deve ser posterior à data de início." });
-  }
+  // Atualização normal
+  if (!name || !type || !priority || !start || !end) return res.status(400).json({ error: "Preencha todos os campos obrigatórios." });
+  if (end < start) return res.status(400).json({ error: "A data de término deve ser posterior à data de início." });
 
   db.prepare(`
-    UPDATE tasks
-       SET name = ?, type = ?, priority = ?, start_date = ?, end_date = ?, color = ?
-     WHERE id = ?
-  `).run(String(name).trim(), type, priority, start, end, color || tarefa.color, id);
+    UPDATE tasks SET name = ?, type = ?, priority = ?, start_date = ?, end_date = ?, color = ?, completed = ? WHERE id = ?
+  `).run(String(name).trim(), type, priority, start, end, color || tarefa.color, completed !== undefined ? (completed ? 1 : 0) : tarefa.completed, id);
 
   const row = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
   res.json(taskToJson(row));
@@ -324,10 +286,7 @@ app.delete("/api/tasks/:id", autenticar, (req, res) => {
   const id = Number(req.params.id);
   const tarefa = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
   if (!tarefa) return res.status(404).json({ error: "Tarefa não encontrada." });
-
-  if (req.user.role !== "admin" && tarefa.user_id !== req.user.id) {
-    return res.status(403).json({ error: "Sem permissão para excluir esta tarefa." });
-  }
+  if (req.user.role !== "admin" && tarefa.user_id !== req.user.id) return res.status(403).json({ error: "Sem permissão para excluir esta tarefa." });
 
   db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
   res.json({ ok: true });
@@ -344,15 +303,10 @@ app.get("/api/users", autenticar, (req, res) => {
 
 app.put("/api/users/:id/role", autenticar, (req, res) => {
   if (req.user.role !== "admin") return res.status(403).json({ error: "Acesso negado." });
-
   const id = Number(req.params.id);
   const { role } = req.body || {};
-  if (!["admin", "gerente", "usuario"].includes(role)) {
-    return res.status(400).json({ error: "Papel inválido." });
-  }
-  if (id === req.user.id) {
-    return res.status(400).json({ error: "Você não pode mudar seu próprio papel." });
-  }
+  if (!["admin", "gerente", "usuario"].includes(role)) return res.status(400).json({ error: "Papel inválido." });
+  if (id === req.user.id) return res.status(400).json({ error: "Você não pode mudar seu próprio papel." });
 
   db.prepare("UPDATE users SET role = ? WHERE id = ?").run(role, id);
   res.json({ ok: true });
@@ -366,13 +320,7 @@ app.listen(PORT, () => {
   
   if (!process.env.RENDER) {
     const url = `http://localhost:${PORT}`;
-    
-    const comando = process.platform === "win32" 
-      ? `start "" "${url}"` 
-      : process.platform === "darwin" 
-        ? `open "${url}"` 
-        : `xdg-open "${url}"`;
-
+    const comando = process.platform === "win32" ? `start "" "${url}"` : process.platform === "darwin" ? `open "${url}"` : `xdg-open "${url}"`;
     exec(comando, (erro) => {
       if (erro) {
         console.log(" Não foi possível abrir o navegador automaticamente.");
