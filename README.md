@@ -33,7 +33,7 @@ O sistema possui três níveis de acesso: Administrador, Gerente e Usuário Comu
 ## ✨ Funcionalidades
 
 - **Autenticação de Usuários:** Cadastro e login com criptografia de senhas utilizando Bcrypt e autenticação por tokens JWT.
-- **Controle de Acesso (RBAC):** Gerenciamento de permissões conforme os níveis de acesso: Administrador, Gerente e Usuário.
+- **Controle de Acesso (RBAC):** Gerenciamento de permissões conforme os níveis de acesso: Administrador e Usuários
 - **Gestão de Tarefas (CRUD):** Criação, edição, listagem e exclusão de tarefas.
 - **Calendário Interativo:** Visualização de compromissos nos formatos mensal, semanal e em lista.
 - **Filtros Avançados:** Organização de tarefas por etiquetas, prioridades e períodos, incluindo tarefas vencidas e próximos 7 dias.
