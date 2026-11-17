@@ -135,7 +135,7 @@ function taskToJson(row) {
     start: row.start_date,
     end: row.end_date,
     color: row.color,
-    completed: Boolean(row.completed), // <-- NOVO CAMPO AQUI
+    completed: Boolean(row.completed), 
   };
 }
 
