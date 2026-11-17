@@ -28,7 +28,7 @@ O **Taskly** é uma aplicação web Full Stack desenvolvida como projeto acadêm
 
 A plataforma foi criada para facilitar o gerenciamento de tarefas e compromissos, permitindo que os usuários organizem suas rotinas por meio de um calendário interativo, com recursos de categorização, definição de prioridades, notificações e controle de acesso baseado em perfis.
 
-O sistema possui três níveis de acesso: Administrador, Gerente e Usuário Comum.
+O sistema possui três níveis de acesso: Administrador e Usuário Comum.
 
 ## ✨ Funcionalidades
 
