@@ -4,3 +4,4 @@ taskly.db
 *.db-*
 .env
 Taskly.exe
+.vercel

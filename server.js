@@ -27,7 +27,9 @@ app.use(express.static(path.join(__dirname, "public")));
 // 3. BANCO DE DADOS (SQLite)
 // ============================================
 let dbFolder;
-if (process.env.RENDER) {
+if (process.env.VERCEL) {
+  dbFolder = "/tmp"; 
+} else if (process.env.RENDER) {
   dbFolder = "/var/data";
 } else if (typeof process.pkg !== "undefined") {
   dbFolder = path.dirname(process.execPath);
@@ -136,6 +138,7 @@ function taskToJson(row) {
     end: row.end_date,
     color: row.color,
     completed: Boolean(row.completed), 
+    completed: Boolean(row.completed),
   };
 }
 
@@ -263,14 +266,12 @@ app.put("/api/tasks/:id", autenticar, (req, res) => {
   if (!tarefa) return res.status(404).json({ error: "Tarefa não encontrada." });
   if (req.user.role !== "admin" && tarefa.user_id !== req.user.id) return res.status(403).json({ error: "Sem permissão para editar esta tarefa." });
 
-  // Se for apenas atualização do checkbox de concluído
   if (completed !== undefined && Object.keys(req.body).length === 1) {
     db.prepare("UPDATE tasks SET completed = ? WHERE id = ?").run(completed ? 1 : 0, id);
     const row = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
     return res.json(taskToJson(row));
   }
 
-  // Atualização normal
   if (!name || !type || !priority || !start || !end) return res.status(400).json({ error: "Preencha todos os campos obrigatórios." });
   if (end < start) return res.status(400).json({ error: "A data de término deve ser posterior à data de início." });
 
@@ -313,7 +314,7 @@ app.put("/api/users/:id/role", autenticar, (req, res) => {
 });
 
 // ============================================
-// 8. INICIA O SERVIDOR
+// 8. INICIA O SERVIDOR / VERCEL
 // ============================================
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
@@ -329,3 +330,18 @@ app.listen(PORT, () => {
     });
   }
 });
+// O Vercel injeta a variável VERCEL automaticamente
+if (process.env.VERCEL) {
+  module.exports = app;
+} else {
+  app.listen(PORT, () => {
+    console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
+    if (!process.env.RENDER) {
+      const url = `http://localhost:${PORT}`;
+      const comando = process.platform === "win32" ? `start "" "${url}"` : process.platform === "darwin" ? `open "${url}"` : `xdg-open "${url}"`;
+      exec(comando, (erro) => {
+        if (erro) console.log(` Acesse manualmente: ${url}`);
+      });
+    }
+  });
+}
