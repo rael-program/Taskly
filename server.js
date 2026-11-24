@@ -27,9 +27,7 @@ app.use(express.static(path.join(__dirname, "public")));
 // 3. BANCO DE DADOS (SQLite)
 // ============================================
 let dbFolder;
-if (process.env.VERCEL) {
-  dbFolder = "/tmp"; 
-} else if (process.env.RENDER) {
+if (process.env.RENDER) {
   dbFolder = "/var/data";
 } else if (typeof process.pkg !== "undefined") {
   dbFolder = path.dirname(process.execPath);
