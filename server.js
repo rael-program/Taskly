@@ -313,24 +313,7 @@ app.put("/api/users/:id/role", autenticar, (req, res) => {
   res.json({ ok: true });
 });
 
-// ============================================
-// 8. INICIA O SERVIDOR / VERCEL
-// ============================================
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
-  
-  if (!process.env.RENDER) {
-    const url = `http://localhost:${PORT}`;
-    const comando = process.platform === "win32" ? `start "" "${url}"` : process.platform === "darwin" ? `open "${url}"` : `xdg-open "${url}"`;
-    exec(comando, (erro) => {
-      if (erro) {
-        console.log(" Não foi possível abrir o navegador automaticamente.");
-        console.log(` Por favor, acesse manualmente: ${url}`);
-      }
-    });
-  }
-});
-// O Vercel injeta a variável VERCEL automaticamente
+// A Vercel invoca o app como função; localmente, iniciamos o servidor HTTP.
 if (process.env.VERCEL) {
   module.exports = app;
 } else {
